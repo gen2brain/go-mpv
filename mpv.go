@@ -51,16 +51,6 @@ func (m *Mpv) ClientName() string {
 	return C.GoString(C.mpv_client_name(m.handle))
 }
 
-// Suspend .
-func (m *Mpv) Suspend() {
-	C.mpv_suspend(m.handle)
-}
-
-// Resume .
-func (m *Mpv) Resume() {
-	C.mpv_resume(m.handle)
-}
-
 // GetTimeUS .
 func (m *Mpv) GetTimeUS() int64 {
 	return int64(C.mpv_get_time_us(m.handle))
@@ -257,11 +247,6 @@ func (m *Mpv) Wakeup() {
 // GetWakeupPipe .
 func (m *Mpv) GetWakeupPipe() int {
 	return int(C.mpv_get_wakeup_pipe(m.handle))
-}
-
-// DetachDestroy detaches and destroys the client.
-func (m *Mpv) DetachDestroy() {
-	C.mpv_detach_destroy(m.handle)
 }
 
 // TerminateDestroy terminates mpv and destroys the client.
