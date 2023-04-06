@@ -3,8 +3,7 @@ package mpv
 /*
 #include <mpv/client.h>
 #include <stdlib.h>
-#cgo linux pkg-config: mpv
-#cgo windows pkg-config: --static mpv
+#cgo LDFLAGS: -lmpv
 
 char** makeCharArray(int size) {
     return calloc(sizeof(char*), size);
