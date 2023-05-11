@@ -36,7 +36,7 @@ func main() {
 	for {
 		e := m.WaitEvent(10000)
 		log.Println("event:", e.Event_Id)
-		if e.Event_Id == mpv.EVENT_SHUTDOWN {
+		if e.Event_Id == mpv.EVENT_SHUTDOWN || e.Event_Id == mpv.EVENT_IDLE {
 			break
 		}
 	}
