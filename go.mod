@@ -1,3 +1,3 @@
 module github.com/gen2brain/go-mpv
 
-go 1.20
+go 1.21
