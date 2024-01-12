@@ -66,10 +66,10 @@ func (m *Mpv) LoadConfigFile(fileName string) error {
 	return newError(int(C.mpv_load_config_file(m.handle, cfileName)))
 }
 
-// TimeNS returns the internal time in nanoseconds.
-func (m *Mpv) TimeNS() int64 {
-	return int64(C.mpv_get_time_ns(m.handle))
-}
+//// TimeNS returns the internal time in nanoseconds.
+//func (m *Mpv) TimeNS() int64 {
+//return int64(C.mpv_get_time_ns(m.handle))
+//}
 
 // TimeUS returns the internal time in microseconds.
 func (m *Mpv) TimeUS() int64 {
