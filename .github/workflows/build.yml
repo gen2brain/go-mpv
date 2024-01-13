@@ -39,4 +39,4 @@ jobs:
         sudo apt-get update -y; sudo apt-get install -y libmpv-dev
       if: runner.os == 'Linux'
     - name: Build
-      run: go test -tags purego
+      run: CGO_ENABLED=0 go test

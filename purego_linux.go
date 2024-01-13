@@ -1,4 +1,4 @@
-//go:build (!cgo || purego) && unix && !darwin
+//go:build (!cgo || nocgo) && unix && !darwin
 
 package mpv
 
