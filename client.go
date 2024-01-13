@@ -1,4 +1,4 @@
-//go:build cgo && !purego
+//go:build cgo && !nocgo
 
 // Package mpv provides cgo bindings for libmpv.
 package mpv
