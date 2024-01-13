@@ -1,4 +1,4 @@
-//go:build cgo && !nocgo
+//go:build cgo && !purego
 
 // Package mpv provides cgo bindings for libmpv.
 package mpv
@@ -7,11 +7,11 @@ package mpv
 #include <mpv/client.h>
 #include <stdlib.h>
 
-char** makeCharArray(int size) {
+static char** makeCharArray(int size) {
     return calloc(sizeof(char*), size);
 }
 
-void setStringArray(char** a, int i, char* s) {
+static void setStringArray(char** a, int i, char* s) {
     a[i] = s;
 }
 

@@ -7,7 +7,7 @@
 
 ### Build tags
 
-* `nocgo` - use [purego](https://github.com/ebitengine/purego) implementation (can also be used with `CGO_ENABLED=0`)
+* `purego` - use [purego](https://github.com/ebitengine/purego) implementation (can also be used with `CGO_ENABLED=0`)
 * `pkgconfig` - use pkg-config
 * `static` - use static library (used with `pkgconfig`)
 
