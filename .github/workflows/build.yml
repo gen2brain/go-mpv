@@ -1,7 +1,7 @@
 on: [push, pull_request]
 name: Build
 jobs:
-  test:
+  test-cgo:
     strategy:
       matrix:
         go-version: [1.21.x]
@@ -19,4 +19,28 @@ jobs:
         sudo apt-get update -y; sudo apt-get install -y libmpv-dev
       if: runner.os == 'Linux'
     - name: Build
-      run: go build ./...
+      run: go test
+      env:
+        CGO_ENABLED=1
+
+  test-nocgo:
+    strategy:
+      matrix:
+        go-version: [1.21.x]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Install Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ matrix.go-version }}
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Install package
+      run: |
+        sudo apt-get update -y; sudo apt-get install -y libmpv-dev
+      if: runner.os == 'Linux'
+    - name: Build
+      run: go test
+      env:
+        CGO_ENABLED=0
