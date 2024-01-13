@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	libname = "libmpv-2.dll"
+	libname = "libmpv.dll"
 )
 
 // loadLibrary loads the dll and panics on error.

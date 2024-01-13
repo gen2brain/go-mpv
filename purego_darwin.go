@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	libname = "libmpv.2.dylib"
+	libname = "libmpv.dylib"
 )
 
 // loadLibrary loads the so and panics on error.
