@@ -6,7 +6,7 @@ import (
 )
 
 // EventID type.
-type EventID int
+type EventID uint32
 
 // EventID constants.
 const (
@@ -62,7 +62,7 @@ func (e EventID) String() string {
 }
 
 // Format is data format for options and properties.
-type Format int
+type Format uint32
 
 // Data formats.
 const (
@@ -75,7 +75,7 @@ const (
 )
 
 // Reason is end file reason.
-type Reason int
+type Reason uint32
 
 // End file reasons.
 const (
@@ -110,6 +110,13 @@ func (r Reason) String() string {
 type Event struct {
 	EventID       EventID
 	Error         error
+	ReplyUserdata uint64
+	Data          unsafe.Pointer
+}
+
+type event struct {
+	EventID       uint32
+	Error         int32
 	ReplyUserdata uint64
 	Data          unsafe.Pointer
 }

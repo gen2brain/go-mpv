@@ -13,13 +13,13 @@ func main() {
 		return
 	}
 
-	m := mpv.Create()
+	m := mpv.New()
 	defer m.TerminateDestroy()
 
 	_ = m.RequestLogMessages("info")
 	_ = m.ObserveProperty(0, "pause", mpv.FormatFlag)
 
-	_ = m.SetOptionString("input-default-bindings", "yes")
+	_ = m.SetPropertyString("input-default-bindings", "yes")
 	_ = m.SetOptionString("input-vo-keyboard", "yes")
 	_ = m.SetOption("osc", mpv.FormatFlag, true)
 
@@ -44,6 +44,12 @@ loop:
 			prop := e.Property()
 			value := prop.Data.(int)
 			fmt.Println("property:", prop.Name, value)
+		case mpv.EventFileLoaded:
+			p, err := m.GetProperty("media-title", mpv.FormatString)
+			if err != nil {
+				fmt.Println("error:", err)
+			}
+			fmt.Println("title:", p.(string))
 		case mpv.EventLogMsg:
 			msg := e.LogMessage()
 			fmt.Println("message:", msg.Text)

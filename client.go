@@ -1,4 +1,6 @@
-// Package mpv provides Go bindings for libmpv.
+//go:build cgo && !nocgo
+
+// Package mpv provides cgo bindings for libmpv.
 package mpv
 
 /*
@@ -28,13 +30,13 @@ type Mpv struct {
 	handle *C.mpv_handle
 }
 
-// Create creates a new mpv instance and an associated client API handle.
-func Create() *Mpv {
+// New creates a new mpv instance and an associated client API handle.
+func New() *Mpv {
 	return &Mpv{C.mpv_create()}
 }
 
-// Version returns the MPV_CLIENT_API_VERSION the mpv source has been compiled with.
-func (m *Mpv) Version() uint64 {
+// APIVersion returns the client api version the mpv source has been compiled with.
+func (m *Mpv) APIVersion() uint64 {
 	return uint64(C.mpv_client_api_version())
 }
 
@@ -66,11 +68,6 @@ func (m *Mpv) LoadConfigFile(fileName string) error {
 	return newError(int(C.mpv_load_config_file(m.handle, cfileName)))
 }
 
-//// TimeNS returns the internal time in nanoseconds.
-//func (m *Mpv) TimeNS() int64 {
-//return int64(C.mpv_get_time_ns(m.handle))
-//}
-
 // TimeUS returns the internal time in microseconds.
 func (m *Mpv) TimeUS() int64 {
 	return int64(C.mpv_get_time_us(m.handle))
@@ -95,14 +92,14 @@ func (m *Mpv) SetOptionString(name, value string) error {
 }
 
 // Command runs the specified command, returning an error if something goes wrong.
-func (m *Mpv) Command(command []string) error {
-	arr := C.makeCharArray(C.int(len(command) + 1))
+func (m *Mpv) Command(cmd []string) error {
+	arr := C.makeCharArray(C.int(len(cmd) + 1))
 	if arr == nil {
 		return ErrNomem
 	}
 	defer C.free(unsafe.Pointer(arr))
 
-	for i, s := range command {
+	for i, s := range cmd {
 		C.setStringArray(arr, C.int(i), C.CString(s))
 	}
 
@@ -110,19 +107,19 @@ func (m *Mpv) Command(command []string) error {
 }
 
 // CommandString runs the given command string, this string is parsed internally by mpv.
-func (m *Mpv) CommandString(command string) error {
-	return newError(int(C.mpv_command_string(m.handle, C.CString(command))))
+func (m *Mpv) CommandString(cmd string) error {
+	return newError(int(C.mpv_command_string(m.handle, C.CString(cmd))))
 }
 
 // CommandAsync runs the command asynchronously.
-func (m *Mpv) CommandAsync(replyUserdata uint64, command []string) error {
-	arr := C.makeCharArray(C.int(len(command) + 1))
+func (m *Mpv) CommandAsync(replyUserdata uint64, cmd []string) error {
+	arr := C.makeCharArray(C.int(len(cmd) + 1))
 	if arr == nil {
 		return ErrNomem
 	}
 	defer C.free(unsafe.Pointer(arr))
 
-	for i, s := range command {
+	for i, s := range cmd {
 		C.setStringArray(arr, C.int(i), C.CString(s))
 	}
 
@@ -273,17 +270,14 @@ func (m *Mpv) RequestLogMessages(level string) error {
 }
 
 // WaitEvent calls mpv_wait_event and returns the result as an Event struct.
-func (m *Mpv) WaitEvent(timeout float32) *Event {
-	event := C.mpv_wait_event(m.handle, C.double(timeout))
-	if event == nil {
-		return nil
-	}
+func (m *Mpv) WaitEvent(timeout float64) *Event {
+	ev := C.mpv_wait_event(m.handle, C.double(timeout))
 
 	return &Event{
-		EventID:       EventID(event.event_id),
-		Data:          unsafe.Pointer(event.data),
-		ReplyUserdata: uint64(event.reply_userdata),
-		Error:         newError(int(event.error)),
+		EventID:       EventID(ev.event_id),
+		Data:          unsafe.Pointer(ev.data),
+		ReplyUserdata: uint64(ev.reply_userdata),
+		Error:         newError(int(ev.error)),
 	}
 }
 
