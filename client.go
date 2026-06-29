@@ -78,7 +78,10 @@ func (m *Mpv) SetOption(name string, format Format, data interface{}) error {
 	cname := C.CString(name)
 	defer C.free(unsafe.Pointer(cname))
 
-	return newError(int(C.mpv_set_option(m.handle, cname, C.mpv_format(format), convertData(format, data))))
+	cdata, cleanup := convertData(format, data)
+	defer cleanup()
+
+	return newError(int(C.mpv_set_option(m.handle, cname, C.mpv_format(format), cdata)))
 }
 
 // SetOptionString sets the option to the given string.
@@ -138,7 +141,10 @@ func (m *Mpv) SetProperty(name string, format Format, data interface{}) error {
 	cname := C.CString(name)
 	defer C.free(unsafe.Pointer(cname))
 
-	return newError(int(C.mpv_set_property(m.handle, cname, C.mpv_format(format), convertData(format, data))))
+	cdata, cleanup := convertData(format, data)
+	defer cleanup()
+
+	return newError(int(C.mpv_set_property(m.handle, cname, C.mpv_format(format), cdata)))
 }
 
 // SetPropertyString sets the property to the given string.
@@ -156,7 +162,10 @@ func (m *Mpv) SetPropertyAsync(name string, replyUserdata uint64, format Format,
 	cname := C.CString(name)
 	defer C.free(unsafe.Pointer(cname))
 
-	return newError(int(C.mpv_set_property_async(m.handle, C.uint64_t(replyUserdata), cname, C.mpv_format(format), convertData(format, data))))
+	cdata, cleanup := convertData(format, data)
+	defer cleanup()
+
+	return newError(int(C.mpv_set_property_async(m.handle, C.uint64_t(replyUserdata), cname, C.mpv_format(format), cdata)))
 }
 
 // GetProperty returns the value of the property according to the given format.
@@ -298,14 +307,15 @@ func (m *Mpv) WaitAsyncRequests() {
 	C.mpv_wait_async_requests(m.handle)
 }
 
-// convertData converts the data according to the given format and returns an unsafe.Pointer
-// for use in SetOption and SetProperty.
-func convertData(format Format, data interface{}) unsafe.Pointer {
+// convertData converts data for the given format into a pointer for SetOption/SetProperty,
+// and a cleanup function that must be called once the pointer is no longer needed.
+func convertData(format Format, data interface{}) (unsafe.Pointer, func()) {
 	switch format {
 	case FormatNone:
-		return nil
+		return nil, func() {}
 	case FormatString, FormatOsdString:
-		return unsafe.Pointer(&[]byte(data.(string))[0])
+		cstr := C.CString(data.(string))
+		return unsafe.Pointer(&cstr), func() { C.free(unsafe.Pointer(cstr)) }
 	case FormatFlag:
 		var val int
 		if data.(bool) {
@@ -313,18 +323,18 @@ func convertData(format Format, data interface{}) unsafe.Pointer {
 		} else {
 			val = 0
 		}
-		return unsafe.Pointer(&val)
+		return unsafe.Pointer(&val), func() {}
 	case FormatInt64:
 		i, ok := data.(int64)
 		if !ok {
 			i = int64(data.(int))
 		}
 		val := C.int64_t(i)
-		return unsafe.Pointer(&val)
+		return unsafe.Pointer(&val), func() {}
 	case FormatDouble:
 		val := C.double(data.(float64))
-		return unsafe.Pointer(&val)
+		return unsafe.Pointer(&val), func() {}
 	default:
-		return nil
+		return nil, func() {}
 	}
 }

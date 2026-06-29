@@ -122,7 +122,10 @@ func (m *Mpv) TimeUS() int64 {
 
 // SetOption sets the given option according to the given format.
 func (m *Mpv) SetOption(name string, format Format, data interface{}) error {
-	return newError(setOption(m.handle, name, int(format), convertData(format, data)))
+	cdata, cleanup := convertData(format, data)
+	defer cleanup()
+
+	return newError(setOption(m.handle, name, int(format), cdata))
 }
 
 // SetOptionString sets the option to the given string.
@@ -159,7 +162,10 @@ func (m *Mpv) CommandAsync(replyUserdata uint64, cmd []string) error {
 
 // SetProperty sets the client property according to the given format.
 func (m *Mpv) SetProperty(name string, format Format, data interface{}) error {
-	return newError(setProperty(m.handle, name, int(format), convertData(format, data)))
+	cdata, cleanup := convertData(format, data)
+	defer cleanup()
+
+	return newError(setProperty(m.handle, name, int(format), cdata))
 }
 
 // SetPropertyString sets the property to the given string.
@@ -169,7 +175,10 @@ func (m *Mpv) SetPropertyString(name, value string) error {
 
 // SetPropertyAsync sets a property asynchronously.
 func (m *Mpv) SetPropertyAsync(name string, replyUserdata uint64, format Format, data interface{}) error {
-	return newError(setPropertyAsync(m.handle, replyUserdata, name, int(format), convertData(format, data)))
+	cdata, cleanup := convertData(format, data)
+	defer cleanup()
+
+	return newError(setPropertyAsync(m.handle, replyUserdata, name, int(format), cdata))
 }
 
 // GetProperty returns the value of the property according to the given format.
@@ -286,14 +295,15 @@ func (m *Mpv) WaitAsyncRequests() {
 	waitAsyncRequests(m.handle)
 }
 
-// convertData converts the data according to the given format and returns an unsafe.Pointer
-// for use in SetOption and SetProperty.
-func convertData(format Format, data interface{}) unsafe.Pointer {
+// convertData converts data for the given format into a pointer for SetOption/SetProperty,
+// and a cleanup function that must be called once the pointer is no longer needed.
+func convertData(format Format, data interface{}) (unsafe.Pointer, func()) {
 	switch format {
 	case FormatNone:
-		return nil
+		return nil, func() {}
 	case FormatString, FormatOsdString:
-		return unsafe.Pointer(&[]byte(data.(string))[0])
+		b := cStr(data.(string))
+		return unsafe.Pointer(&b), func() {}
 	case FormatFlag:
 		var val int
 		if data.(bool) {
@@ -301,18 +311,18 @@ func convertData(format Format, data interface{}) unsafe.Pointer {
 		} else {
 			val = 0
 		}
-		return unsafe.Pointer(&val)
+		return unsafe.Pointer(&val), func() {}
 	case FormatInt64:
 		val, ok := data.(int64)
 		if !ok {
 			val = int64(data.(int))
 		}
-		return unsafe.Pointer(&val)
+		return unsafe.Pointer(&val), func() {}
 	case FormatDouble:
 		val := data.(float64)
-		return unsafe.Pointer(&val)
+		return unsafe.Pointer(&val), func() {}
 	default:
-		return nil
+		return nil, func() {}
 	}
 }
 
