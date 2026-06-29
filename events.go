@@ -129,7 +129,7 @@ func (e *Event) LogMessage() EventLogMessage {
 	elm.LogLevel = s.LogLevel
 	elm.Prefix = toStr(s.Prefix)
 	elm.Level = toStr(s.Level)
-	elm.Text = toStr(s.Text)
+	elm.Text = strings.TrimSuffix(toStr(s.Text), "\n")
 
 	return elm
 }
@@ -247,5 +247,5 @@ func toStr(p unsafe.Pointer) string {
 		n++
 	}
 
-	return strings.TrimSpace(string(unsafe.Slice((*byte)(p), n)))
+	return string(unsafe.Slice((*byte)(p), n))
 }

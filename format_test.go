@@ -123,7 +123,8 @@ func TestToStr(t *testing.T) {
 	}{
 		{"plain", []byte("hello\x00"), "hello"},
 		{"stops at nul", []byte("hello\x00world\x00"), "hello"},
-		{"trims surrounding space", []byte("  hi  \x00"), "hi"},
+		{"preserves surrounding space", []byte("  hi  \x00"), "  hi  "},
+		{"preserves newline", []byte("line\n\x00"), "line\n"},
 		{"empty", []byte("\x00"), ""},
 		{"utf8", []byte("héllo\x00"), "héllo"},
 	}
