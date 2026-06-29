@@ -65,6 +65,11 @@ func (m *Mpv) TerminateDestroy() {
 	C.mpv_terminate_destroy(m.handle)
 }
 
+// Destroy disconnects and destroys this client handle without terminating mpv.
+func (m *Mpv) Destroy() {
+	C.mpv_destroy(m.handle)
+}
+
 // LoadConfigFile loads the given config file.
 func (m *Mpv) LoadConfigFile(fileName string) error {
 	cfileName := C.CString(fileName)
@@ -76,6 +81,11 @@ func (m *Mpv) LoadConfigFile(fileName string) error {
 // TimeUS returns the internal time in microseconds.
 func (m *Mpv) TimeUS() int64 {
 	return int64(C.mpv_get_time_us(m.handle))
+}
+
+// TimeNS returns the internal time in nanoseconds.
+func (m *Mpv) TimeNS() int64 {
+	return int64(C.mpv_get_time_ns(m.handle))
 }
 
 // SetOption sets the given option according to the given format.
@@ -164,6 +174,11 @@ func (m *Mpv) CommandNodeAsync(replyUserdata uint64, args interface{}) error {
 	return newError(int(C.mpv_command_node_async(m.handle, C.uint64_t(replyUserdata), (*C.mpv_node)(cargs))))
 }
 
+// AbortAsyncCommand aborts an outstanding asynchronous command with the given reply userdata.
+func (m *Mpv) AbortAsyncCommand(replyUserdata uint64) {
+	C.mpv_abort_async_command(m.handle, C.uint64_t(replyUserdata))
+}
+
 // SetProperty sets the client property according to the given format.
 func (m *Mpv) SetProperty(name string, format Format, data interface{}) error {
 	cname := C.CString(name)
@@ -183,6 +198,14 @@ func (m *Mpv) SetPropertyString(name, value string) error {
 	defer C.free(unsafe.Pointer(cvalue))
 
 	return newError(int(C.mpv_set_property_string(m.handle, cname, cvalue)))
+}
+
+// DelProperty deletes the given property.
+func (m *Mpv) DelProperty(name string) error {
+	cname := C.CString(name)
+	defer C.free(unsafe.Pointer(cname))
+
+	return newError(int(C.mpv_del_property(m.handle, cname)))
 }
 
 // SetPropertyAsync sets a property asynchronously.
@@ -336,6 +359,11 @@ func (m *Mpv) WaitEvent(timeout float64) *Event {
 // Wakeup interrupts the current mpv_wait_event() call.
 func (m *Mpv) Wakeup() {
 	C.mpv_wakeup(m.handle)
+}
+
+// WakeupPipe returns the read end of a pipe that signals new events, or -1 on error.
+func (m *Mpv) WakeupPipe() int {
+	return int(C.mpv_get_wakeup_pipe(m.handle))
 }
 
 // WaitAsyncRequests blocks until all asynchronous requests are done.

@@ -19,8 +19,10 @@ var name func(handle uintptr) string
 var id func(handle uintptr) int64
 var initialize func(handle uintptr) int
 var terminateDestroy func(handle uintptr)
+var destroy func(handle uintptr)
 var loadConfigFile func(handle uintptr, fileName string) int
 var timeUS func(handle uintptr) int64
+var timeNS func(handle uintptr) int64
 var setOption func(handle uintptr, name string, format int, data unsafe.Pointer) int
 var setOptionString func(handle uintptr, name, value string) int
 var command func(handle uintptr, cmd **byte) int
@@ -28,6 +30,7 @@ var commandString func(handle uintptr, cmd string) int
 var commandAsync func(handle uintptr, replyUserdata uint64, cmd **byte) int
 var setProperty func(handle uintptr, name string, format int, data unsafe.Pointer) int
 var setPropertyString func(handle uintptr, name, value string) int
+var delProperty func(handle uintptr, name string) int
 var setPropertyAsync func(handle uintptr, replyUserdata uint64, name string, format int, data unsafe.Pointer) int
 var getProperty func(handle uintptr, name string, format int, data unsafe.Pointer) int
 var getPropertyString func(handle uintptr, name string) *byte
@@ -39,7 +42,9 @@ var requestEvent func(handle uintptr, event int, enable bool) int
 var requestLogMessages func(handle uintptr, level string) int
 var waitEvent func(handle uintptr, timeout float64) *event
 var wakeup func(handle uintptr)
+var wakeupPipe func(handle uintptr) int
 var waitAsyncRequests func(handle uintptr)
+var abortAsyncCommand func(handle uintptr, replyUserdata uint64)
 var mpvFree func(data unsafe.Pointer)
 var commandNode func(handle uintptr, args, result unsafe.Pointer) int
 var commandNodeAsync func(handle uintptr, replyUserdata uint64, args unsafe.Pointer) int
@@ -56,8 +61,10 @@ func init() {
 	purego.RegisterLibFunc(&id, libmpv, "mpv_client_id")
 	purego.RegisterLibFunc(&initialize, libmpv, "mpv_initialize")
 	purego.RegisterLibFunc(&terminateDestroy, libmpv, "mpv_terminate_destroy")
+	purego.RegisterLibFunc(&destroy, libmpv, "mpv_destroy")
 	purego.RegisterLibFunc(&loadConfigFile, libmpv, "mpv_load_config_file")
 	purego.RegisterLibFunc(&timeUS, libmpv, "mpv_get_time_us")
+	purego.RegisterLibFunc(&timeNS, libmpv, "mpv_get_time_ns")
 	purego.RegisterLibFunc(&setOption, libmpv, "mpv_set_option")
 	purego.RegisterLibFunc(&setOptionString, libmpv, "mpv_set_option_string")
 	purego.RegisterLibFunc(&command, libmpv, "mpv_command")
@@ -65,6 +72,7 @@ func init() {
 	purego.RegisterLibFunc(&commandAsync, libmpv, "mpv_command_async")
 	purego.RegisterLibFunc(&setProperty, libmpv, "mpv_set_property")
 	purego.RegisterLibFunc(&setPropertyString, libmpv, "mpv_set_property_string")
+	purego.RegisterLibFunc(&delProperty, libmpv, "mpv_del_property")
 	purego.RegisterLibFunc(&setPropertyAsync, libmpv, "mpv_set_property_async")
 	purego.RegisterLibFunc(&getProperty, libmpv, "mpv_get_property")
 	purego.RegisterLibFunc(&getPropertyString, libmpv, "mpv_get_property_string")
@@ -76,7 +84,9 @@ func init() {
 	purego.RegisterLibFunc(&requestLogMessages, libmpv, "mpv_request_log_messages")
 	purego.RegisterLibFunc(&waitEvent, libmpv, "mpv_wait_event")
 	purego.RegisterLibFunc(&wakeup, libmpv, "mpv_wakeup")
+	purego.RegisterLibFunc(&wakeupPipe, libmpv, "mpv_get_wakeup_pipe")
 	purego.RegisterLibFunc(&waitAsyncRequests, libmpv, "mpv_wait_async_requests")
+	purego.RegisterLibFunc(&abortAsyncCommand, libmpv, "mpv_abort_async_command")
 	purego.RegisterLibFunc(&mpvFree, libmpv, "mpv_free")
 	purego.RegisterLibFunc(&commandNode, libmpv, "mpv_command_node")
 	purego.RegisterLibFunc(&commandNodeAsync, libmpv, "mpv_command_node_async")
@@ -123,6 +133,11 @@ func (m *Mpv) TerminateDestroy() {
 	terminateDestroy(m.handle)
 }
 
+// Destroy disconnects and destroys this client handle without terminating mpv.
+func (m *Mpv) Destroy() {
+	destroy(m.handle)
+}
+
 // LoadConfigFile loads the given config file.
 func (m *Mpv) LoadConfigFile(fileName string) error {
 	return newError(loadConfigFile(m.handle, fileName))
@@ -131,6 +146,11 @@ func (m *Mpv) LoadConfigFile(fileName string) error {
 // TimeUS returns the internal time in microseconds.
 func (m *Mpv) TimeUS() int64 {
 	return timeUS(m.handle)
+}
+
+// TimeNS returns the internal time in nanoseconds.
+func (m *Mpv) TimeNS() int64 {
+	return timeNS(m.handle)
 }
 
 // SetOption sets the given option according to the given format.
@@ -196,6 +216,11 @@ func (m *Mpv) CommandNodeAsync(replyUserdata uint64, args interface{}) error {
 	return newError(commandNodeAsync(m.handle, replyUserdata, cargs))
 }
 
+// AbortAsyncCommand aborts an outstanding asynchronous command with the given reply userdata.
+func (m *Mpv) AbortAsyncCommand(replyUserdata uint64) {
+	abortAsyncCommand(m.handle, replyUserdata)
+}
+
 // SetProperty sets the client property according to the given format.
 func (m *Mpv) SetProperty(name string, format Format, data interface{}) error {
 	cdata, cleanup := convertData(format, data)
@@ -207,6 +232,11 @@ func (m *Mpv) SetProperty(name string, format Format, data interface{}) error {
 // SetPropertyString sets the property to the given string.
 func (m *Mpv) SetPropertyString(name, value string) error {
 	return newError(setPropertyString(m.handle, name, value))
+}
+
+// DelProperty deletes the given property.
+func (m *Mpv) DelProperty(name string) error {
+	return newError(delProperty(m.handle, name))
 }
 
 // SetPropertyAsync sets a property asynchronously.
@@ -332,6 +362,11 @@ func (m *Mpv) WaitEvent(timeout float64) *Event {
 // Wakeup interrupts the current WaitEvent() call.
 func (m *Mpv) Wakeup() {
 	wakeup(m.handle)
+}
+
+// WakeupPipe returns the read end of a pipe that signals new events, or -1 on error.
+func (m *Mpv) WakeupPipe() int {
+	return wakeupPipe(m.handle)
 }
 
 // WaitAsyncRequests blocks until all asynchronous requests are done.
