@@ -100,7 +100,9 @@ func (m *Mpv) Command(cmd []string) error {
 	defer C.free(unsafe.Pointer(arr))
 
 	for i, s := range cmd {
-		C.setStringArray(arr, C.int(i), C.CString(s))
+		cs := C.CString(s)
+		defer C.free(unsafe.Pointer(cs))
+		C.setStringArray(arr, C.int(i), cs)
 	}
 
 	return newError(int(C.mpv_command(m.handle, arr)))
@@ -108,7 +110,10 @@ func (m *Mpv) Command(cmd []string) error {
 
 // CommandString runs the given command string, this string is parsed internally by mpv.
 func (m *Mpv) CommandString(cmd string) error {
-	return newError(int(C.mpv_command_string(m.handle, C.CString(cmd))))
+	ccmd := C.CString(cmd)
+	defer C.free(unsafe.Pointer(ccmd))
+
+	return newError(int(C.mpv_command_string(m.handle, ccmd)))
 }
 
 // CommandAsync runs the command asynchronously.
@@ -120,7 +125,9 @@ func (m *Mpv) CommandAsync(replyUserdata uint64, cmd []string) error {
 	defer C.free(unsafe.Pointer(arr))
 
 	for i, s := range cmd {
-		C.setStringArray(arr, C.int(i), C.CString(s))
+		cs := C.CString(s)
+		defer C.free(unsafe.Pointer(cs))
+		C.setStringArray(arr, C.int(i), cs)
 	}
 
 	return newError(int(C.mpv_command_async(m.handle, C.uint64_t(replyUserdata), arr)))
