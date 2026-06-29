@@ -27,6 +27,7 @@ var setOption func(handle uintptr, name string, format int, data unsafe.Pointer)
 var setOptionString func(handle uintptr, name, value string) int
 var command func(handle uintptr, cmd **byte) int
 var commandString func(handle uintptr, cmd string) int
+var commandRet func(handle uintptr, cmd **byte, result unsafe.Pointer) int
 var commandAsync func(handle uintptr, replyUserdata uint64, cmd **byte) int
 var setProperty func(handle uintptr, name string, format int, data unsafe.Pointer) int
 var setPropertyString func(handle uintptr, name, value string) int
@@ -40,6 +41,8 @@ var observeProperty func(handle uintptr, replyUserdata uint64, name string, form
 var unobserveProperty func(handle uintptr, replyUserdata uint64) int
 var requestEvent func(handle uintptr, event int, enable bool) int
 var requestLogMessages func(handle uintptr, level string) int
+var hookAdd func(handle uintptr, replyUserdata uint64, name string, priority int) int
+var hookContinue func(handle uintptr, id uint64) int
 var waitEvent func(handle uintptr, timeout float64) *event
 var wakeup func(handle uintptr)
 var wakeupPipe func(handle uintptr) int
@@ -69,6 +72,7 @@ func init() {
 	purego.RegisterLibFunc(&setOptionString, libmpv, "mpv_set_option_string")
 	purego.RegisterLibFunc(&command, libmpv, "mpv_command")
 	purego.RegisterLibFunc(&commandString, libmpv, "mpv_command_string")
+	purego.RegisterLibFunc(&commandRet, libmpv, "mpv_command_ret")
 	purego.RegisterLibFunc(&commandAsync, libmpv, "mpv_command_async")
 	purego.RegisterLibFunc(&setProperty, libmpv, "mpv_set_property")
 	purego.RegisterLibFunc(&setPropertyString, libmpv, "mpv_set_property_string")
@@ -82,6 +86,8 @@ func init() {
 	purego.RegisterLibFunc(&unobserveProperty, libmpv, "mpv_unobserve_property")
 	purego.RegisterLibFunc(&requestEvent, libmpv, "mpv_request_event")
 	purego.RegisterLibFunc(&requestLogMessages, libmpv, "mpv_request_log_messages")
+	purego.RegisterLibFunc(&hookAdd, libmpv, "mpv_hook_add")
+	purego.RegisterLibFunc(&hookContinue, libmpv, "mpv_hook_continue")
 	purego.RegisterLibFunc(&waitEvent, libmpv, "mpv_wait_event")
 	purego.RegisterLibFunc(&wakeup, libmpv, "mpv_wakeup")
 	purego.RegisterLibFunc(&wakeupPipe, libmpv, "mpv_get_wakeup_pipe")
@@ -180,6 +186,24 @@ func (m *Mpv) Command(cmd []string) error {
 // CommandString runs the given command string, this string is parsed internally by mpv.
 func (m *Mpv) CommandString(cmd string) error {
 	return newError(commandString(m.handle, cmd))
+}
+
+// CommandRet runs the specified command and returns its result.
+func (m *Mpv) CommandRet(cmd []string) (interface{}, error) {
+	cmds := make([]*byte, 0, len(cmd)+1)
+	for _, c := range cmd {
+		cmds = append(cmds, cStr(c))
+	}
+	cmds = append(cmds, nil)
+
+	var result cNode
+	err := newError(commandRet(m.handle, unsafe.SliceData(cmds), unsafe.Pointer(&result)))
+	if err != nil {
+		return nil, err
+	}
+	defer freeNodeContents(unsafe.Pointer(&result))
+
+	return nodeToGo(unsafe.Pointer(&result)), nil
 }
 
 // CommandAsync runs the command asynchronously.
@@ -345,6 +369,16 @@ func (m *Mpv) RequestEvent(event EventID, enable bool) error {
 // Valid log levels: no fatal error warn info v debug trace.
 func (m *Mpv) RequestLogMessages(level string) error {
 	return newError(requestLogMessages(m.handle, level))
+}
+
+// HookAdd registers a hook handler for the named hook. Higher priority runs first.
+func (m *Mpv) HookAdd(replyUserdata uint64, name string, priority int) error {
+	return newError(hookAdd(m.handle, replyUserdata, name, priority))
+}
+
+// HookContinue continues the hook with the given ID from a hook event.
+func (m *Mpv) HookContinue(id uint64) error {
+	return newError(hookContinue(m.handle, id))
 }
 
 // WaitEvent calls mpv_wait_event and returns the result as an Event struct.

@@ -134,6 +134,30 @@ func (m *Mpv) CommandString(cmd string) error {
 	return newError(int(C.mpv_command_string(m.handle, ccmd)))
 }
 
+// CommandRet runs the specified command and returns its result.
+func (m *Mpv) CommandRet(cmd []string) (interface{}, error) {
+	arr := C.makeCharArray(C.int(len(cmd) + 1))
+	if arr == nil {
+		return nil, ErrNomem
+	}
+	defer C.free(unsafe.Pointer(arr))
+
+	for i, s := range cmd {
+		cs := C.CString(s)
+		defer C.free(unsafe.Pointer(cs))
+		C.setStringArray(arr, C.int(i), cs)
+	}
+
+	var result C.mpv_node
+	err := newError(int(C.mpv_command_ret(m.handle, arr, &result)))
+	if err != nil {
+		return nil, err
+	}
+	defer C.mpv_free_node_contents(&result)
+
+	return nodeToGo(unsafe.Pointer(&result)), nil
+}
+
 // CommandAsync runs the command asynchronously.
 func (m *Mpv) CommandAsync(replyUserdata uint64, cmd []string) error {
 	arr := C.makeCharArray(C.int(len(cmd) + 1))
@@ -342,6 +366,19 @@ func (m *Mpv) RequestLogMessages(level string) error {
 	defer C.free(unsafe.Pointer(clevel))
 
 	return newError(int(C.mpv_request_log_messages(m.handle, clevel)))
+}
+
+// HookAdd registers a hook handler for the named hook. Higher priority runs first.
+func (m *Mpv) HookAdd(replyUserdata uint64, name string, priority int) error {
+	cname := C.CString(name)
+	defer C.free(unsafe.Pointer(cname))
+
+	return newError(int(C.mpv_hook_add(m.handle, C.uint64_t(replyUserdata), cname, C.int(priority))))
+}
+
+// HookContinue continues the hook with the given ID from a hook event.
+func (m *Mpv) HookContinue(id uint64) error {
+	return newError(int(C.mpv_hook_continue(m.handle, C.uint64_t(id))))
 }
 
 // WaitEvent calls mpv_wait_event and returns the result as an Event struct.
