@@ -8,16 +8,19 @@ import (
 	"github.com/ebitengine/purego"
 )
 
-const (
-	libname = "libmpv.dylib"
-)
+// libnames are the libmpv dylib names, tried in order.
+var libnames = []string{"libmpv.dylib", "libmpv.2.dylib"}
 
-// loadLibrary loads the so and panics on error.
+// loadLibrary loads the dylib and panics if none of the known names can be found.
 func loadLibrary() uintptr {
-	handle, err := purego.Dlopen(libname, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-	if err != nil {
-		panic(fmt.Errorf("cannot load library: %w", err))
+	var err error
+	for _, name := range libnames {
+		var handle uintptr
+		handle, err = purego.Dlopen(name, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+		if err == nil {
+			return handle
+		}
 	}
 
-	return uintptr(handle)
+	panic(fmt.Errorf("cannot load libmpv (tried %v): %w", libnames, err))
 }
