@@ -14,7 +14,7 @@ var (
 )
 
 var create func() uintptr
-var apiVersion func() uint64
+var apiVersion func() uint32
 var name func(handle uintptr) string
 var id func(handle uintptr) int64
 var initialize func(handle uintptr) int
@@ -87,7 +87,7 @@ func New() *Mpv {
 
 // APIVersion returns the client api version the mpv source has been compiled with.
 func (m *Mpv) APIVersion() uint64 {
-	return apiVersion()
+	return uint64(apiVersion())
 }
 
 // Name returns the name of this client handle.
