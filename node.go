@@ -129,6 +129,8 @@ func goToNode(v any) (unsafe.Pointer, func()) {
 
 // fillNode populates the allocated node dst from v, allocating referenced memory.
 func fillNode(dst *cNode, v any) {
+	dst.u = 0
+
 	switch val := v.(type) {
 	case nil:
 		dst.format = int32(FormatNone)
