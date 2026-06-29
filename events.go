@@ -190,6 +190,32 @@ func (e *Event) EndFile() EventEndFile {
 	return eef
 }
 
+// ClientMessage returns the arguments of a client message event.
+func (e *Event) ClientMessage() []string {
+	s := (*eventClientMessage)(e.Data)
+	out := make([]string, s.NumArgs)
+	if s.NumArgs > 0 {
+		args := unsafe.Slice((*unsafe.Pointer)(s.Args), int(s.NumArgs))
+		for i := range args {
+			out[i] = toStr(args[i])
+		}
+	}
+
+	return out
+}
+
+// Hook returns the hook event. Its ID must be passed to HookContinue.
+func (e *Event) Hook() Hook {
+	s := (*eventHook)(e.Data)
+
+	return Hook{Name: toStr(s.Name), ID: s.ID}
+}
+
+// CommandReply returns the result of an asynchronous command.
+func (e *Event) CommandReply() any {
+	return nodeToGo(e.Data)
+}
+
 // EventProperty type.
 type EventProperty struct {
 	Name   string
@@ -240,6 +266,22 @@ type eventEndFile struct {
 	InsertID         int64
 	InsertNumEntries int32
 	_                [4]byte
+}
+
+type eventClientMessage struct {
+	NumArgs int32
+	Args    unsafe.Pointer
+}
+
+// Hook is the payload of a hook event.
+type Hook struct {
+	Name string
+	ID   uint64
+}
+
+type eventHook struct {
+	Name unsafe.Pointer
+	ID   uint64
 }
 
 // toStr copies a NUL-terminated C string into a Go-owned string.
