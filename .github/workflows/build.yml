@@ -60,3 +60,43 @@ jobs:
         else
           DYLD_FALLBACK_LIBRARY_PATH="$(brew --prefix)/lib" go test ./...
         fi
+
+  test-cgo-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-go
+          mingw-w64-x86_64-mpv
+    - name: Test
+      run: go test ./...
+
+  test-purego-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-go
+          mingw-w64-x86_64-mpv
+    - name: Test
+      env:
+        CGO_ENABLED: '0'
+      run: go test ./...
