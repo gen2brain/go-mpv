@@ -30,9 +30,9 @@ var setProperty func(handle uintptr, name string, format int, data unsafe.Pointe
 var setPropertyString func(handle uintptr, name, value string) int
 var setPropertyAsync func(handle uintptr, replyUserdata uint64, name string, format int, data unsafe.Pointer) int
 var getProperty func(handle uintptr, name string, format int, data unsafe.Pointer) int
-var getPropertyString func(handle uintptr, name string) string
-var getPropertyOsdString func(handle uintptr, name string) string
-var getPropertyAsync func(handle uintptr, name string, replyUserdata uint64, format int) int
+var getPropertyString func(handle uintptr, name string) *byte
+var getPropertyOsdString func(handle uintptr, name string) *byte
+var getPropertyAsync func(handle uintptr, replyUserdata uint64, name string, format int) int
 var observeProperty func(handle uintptr, replyUserdata uint64, name string, format int) int
 var unobserveProperty func(handle uintptr, replyUserdata uint64) int
 var requestEvent func(handle uintptr, event int, enable bool) int
@@ -40,6 +40,7 @@ var requestLogMessages func(handle uintptr, level string) int
 var waitEvent func(handle uintptr, timeout float64) *event
 var wakeup func(handle uintptr)
 var waitAsyncRequests func(handle uintptr)
+var free func(data unsafe.Pointer)
 
 func init() {
 	libmpv = loadLibrary()
@@ -71,6 +72,7 @@ func init() {
 	purego.RegisterLibFunc(&waitEvent, libmpv, "mpv_wait_event")
 	purego.RegisterLibFunc(&wakeup, libmpv, "mpv_wakeup")
 	purego.RegisterLibFunc(&waitAsyncRequests, libmpv, "mpv_wait_async_requests")
+	purego.RegisterLibFunc(&free, libmpv, "mpv_free")
 }
 
 // Mpv represents an mpv client.
@@ -130,10 +132,11 @@ func (m *Mpv) SetOptionString(name, value string) error {
 
 // Command runs the specified command, returning an error if something goes wrong.
 func (m *Mpv) Command(cmd []string) error {
-	cmds := make([]*byte, 0)
+	cmds := make([]*byte, 0, len(cmd)+1)
 	for _, c := range cmd {
 		cmds = append(cmds, cStr(c))
 	}
+	cmds = append(cmds, nil)
 
 	return newError(command(m.handle, unsafe.SliceData(cmds)))
 }
@@ -145,10 +148,11 @@ func (m *Mpv) CommandString(cmd string) error {
 
 // CommandAsync runs the command asynchronously.
 func (m *Mpv) CommandAsync(replyUserdata uint64, cmd []string) error {
-	cmds := make([]*byte, 0)
+	cmds := make([]*byte, 0, len(cmd)+1)
 	for _, c := range cmd {
 		cmds = append(cmds, cStr(c))
 	}
+	cmds = append(cmds, nil)
 
 	return newError(commandAsync(m.handle, replyUserdata, unsafe.SliceData(cmds)))
 }
@@ -183,6 +187,7 @@ func (m *Mpv) GetProperty(name string, format Format) (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
+		defer free(unsafe.Pointer(result))
 		return toStr(unsafe.Pointer(result)), nil
 	case FormatFlag:
 		var result int
@@ -213,17 +218,29 @@ func (m *Mpv) GetProperty(name string, format Format) (interface{}, error) {
 // GetPropertyString returns the value of the property as a string.
 // If the property is empty, an empty string is returned.
 func (m *Mpv) GetPropertyString(name string) string {
-	return getPropertyString(m.handle, name)
+	str := getPropertyString(m.handle, name)
+	if str == nil {
+		return ""
+	}
+	defer free(unsafe.Pointer(str))
+
+	return toStr(unsafe.Pointer(str))
 }
 
 // GetPropertyOsdString returns the value of the property as a string formatted for on-screen display.
 func (m *Mpv) GetPropertyOsdString(name string) string {
-	return getPropertyOsdString(m.handle, name)
+	str := getPropertyOsdString(m.handle, name)
+	if str == nil {
+		return ""
+	}
+	defer free(unsafe.Pointer(str))
+
+	return toStr(unsafe.Pointer(str))
 }
 
 // GetPropertyAsync gets a property asynchronously.
 func (m *Mpv) GetPropertyAsync(name string, replyUserdata uint64, format Format) error {
-	return newError(getPropertyAsync(m.handle, name, replyUserdata, int(format)))
+	return newError(getPropertyAsync(m.handle, replyUserdata, name, int(format)))
 }
 
 // ObserveProperty gets a notification whenever the given property changes.
