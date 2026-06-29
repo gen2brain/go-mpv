@@ -72,6 +72,10 @@ const (
 	FormatFlag
 	FormatInt64
 	FormatDouble
+	FormatNode
+	FormatNodeArray
+	FormatNodeMap
+	FormatByteArray
 )
 
 // Reason is end file reason.
