@@ -3,40 +3,60 @@ name: Build
 jobs:
   test-cgo:
     strategy:
+      fail-fast: false
       matrix:
-        go-version: [1.21.x]
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-    - name: Install Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: ${{ matrix.go-version }}
     - name: Checkout code
       uses: actions/checkout@v4
-    - name: Install package
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25.x'
+    - name: Install libmpv
       run: |
-        sudo apt-get update -y; sudo apt-get install -y libmpv-dev
-      if: runner.os == 'Linux'
-    - name: Build
-      run: go test
+        if [ "$RUNNER_OS" = "Linux" ]; then
+          sudo apt-get update -y
+          sudo apt-get install -y libmpv-dev
+        else
+          brew install mpv pkg-config
+        fi
+    - name: Test
+      run: |
+        if [ "$RUNNER_OS" = "Linux" ]; then
+          go test ./...
+        else
+          PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig" go test -tags pkgconfig ./...
+        fi
 
   test-purego:
     strategy:
+      fail-fast: false
       matrix:
-        go-version: [1.21.x]
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-    - name: Install Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: ${{ matrix.go-version }}
     - name: Checkout code
       uses: actions/checkout@v4
-    - name: Install package
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25.x'
+    - name: Install libmpv
       run: |
-        sudo apt-get update -y; sudo apt-get install -y libmpv-dev
-      if: runner.os == 'Linux'
-    - name: Build
-      run: CGO_ENABLED=0 go test
+        if [ "$RUNNER_OS" = "Linux" ]; then
+          sudo apt-get update -y
+          sudo apt-get install -y libmpv-dev
+        else
+          brew install mpv
+        fi
+    - name: Test
+      env:
+        CGO_ENABLED: '0'
+      run: |
+        if [ "$RUNNER_OS" = "Linux" ]; then
+          go test ./...
+        else
+          DYLD_FALLBACK_LIBRARY_PATH="$(brew --prefix)/lib" go test ./...
+        fi
