@@ -25,6 +25,11 @@ import (
 	"unsafe"
 )
 
+func init() {
+	cAlloc = func(size int) unsafe.Pointer { return C.malloc(C.size_t(size)) }
+	cFree = func(p unsafe.Pointer) { C.free(p) }
+}
+
 // Mpv represents an mpv client.
 type Mpv struct {
 	handle *C.mpv_handle
@@ -136,6 +141,29 @@ func (m *Mpv) CommandAsync(replyUserdata uint64, cmd []string) error {
 	return newError(int(C.mpv_command_async(m.handle, C.uint64_t(replyUserdata), arr)))
 }
 
+// CommandNode runs a command given as a []any or map[string]any and returns its result.
+func (m *Mpv) CommandNode(args interface{}) (interface{}, error) {
+	cargs, cleanup := goToNode(args)
+	defer cleanup()
+
+	var result C.mpv_node
+	err := newError(int(C.mpv_command_node(m.handle, (*C.mpv_node)(cargs), &result)))
+	if err != nil {
+		return nil, err
+	}
+	defer C.mpv_free_node_contents(&result)
+
+	return nodeToGo(unsafe.Pointer(&result)), nil
+}
+
+// CommandNodeAsync runs a structured command asynchronously.
+func (m *Mpv) CommandNodeAsync(replyUserdata uint64, args interface{}) error {
+	cargs, cleanup := goToNode(args)
+	defer cleanup()
+
+	return newError(int(C.mpv_command_node_async(m.handle, C.uint64_t(replyUserdata), (*C.mpv_node)(cargs))))
+}
+
 // SetProperty sets the client property according to the given format.
 func (m *Mpv) SetProperty(name string, format Format, data interface{}) error {
 	cname := C.CString(name)
@@ -209,6 +237,14 @@ func (m *Mpv) GetProperty(name string, format Format) (interface{}, error) {
 			return nil, err
 		}
 		return float64(result), nil
+	case FormatNode:
+		var result C.mpv_node
+		err := newError(int(C.mpv_get_property(m.handle, n, C.mpv_format(format), unsafe.Pointer(&result))))
+		if err != nil {
+			return nil, err
+		}
+		defer C.mpv_free_node_contents(&result)
+		return nodeToGo(unsafe.Pointer(&result)), nil
 	default:
 		return nil, ErrUnknownFormat
 	}
@@ -334,6 +370,8 @@ func convertData(format Format, data interface{}) (unsafe.Pointer, func()) {
 	case FormatDouble:
 		val := C.double(data.(float64))
 		return unsafe.Pointer(&val), func() {}
+	case FormatNode:
+		return goToNode(data)
 	default:
 		return nil, func() {}
 	}

@@ -157,6 +157,8 @@ func (e *Event) Property() EventProperty {
 		ep.Data = *(*int64)(s.Data)
 	case FormatDouble:
 		ep.Data = *(*float64)(s.Data)
+	case FormatNode:
+		ep.Data = nodeToGo(s.Data)
 	default:
 		ep.Data = nil
 	}

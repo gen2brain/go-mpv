@@ -40,7 +40,12 @@ var requestLogMessages func(handle uintptr, level string) int
 var waitEvent func(handle uintptr, timeout float64) *event
 var wakeup func(handle uintptr)
 var waitAsyncRequests func(handle uintptr)
-var free func(data unsafe.Pointer)
+var mpvFree func(data unsafe.Pointer)
+var commandNode func(handle uintptr, args, result unsafe.Pointer) int
+var commandNodeAsync func(handle uintptr, replyUserdata uint64, args unsafe.Pointer) int
+var freeNodeContents func(node unsafe.Pointer)
+var memAlloc func(size uintptr) unsafe.Pointer
+var memFree func(p unsafe.Pointer)
 
 func init() {
 	libmpv = loadLibrary()
@@ -72,7 +77,15 @@ func init() {
 	purego.RegisterLibFunc(&waitEvent, libmpv, "mpv_wait_event")
 	purego.RegisterLibFunc(&wakeup, libmpv, "mpv_wakeup")
 	purego.RegisterLibFunc(&waitAsyncRequests, libmpv, "mpv_wait_async_requests")
-	purego.RegisterLibFunc(&free, libmpv, "mpv_free")
+	purego.RegisterLibFunc(&mpvFree, libmpv, "mpv_free")
+	purego.RegisterLibFunc(&commandNode, libmpv, "mpv_command_node")
+	purego.RegisterLibFunc(&commandNodeAsync, libmpv, "mpv_command_node_async")
+	purego.RegisterLibFunc(&freeNodeContents, libmpv, "mpv_free_node_contents")
+	purego.RegisterLibFunc(&memAlloc, libmpv, "malloc")
+	purego.RegisterLibFunc(&memFree, libmpv, "free")
+
+	cAlloc = func(size int) unsafe.Pointer { return memAlloc(uintptr(size)) }
+	cFree = memFree
 }
 
 // Mpv represents an mpv client.
@@ -160,6 +173,29 @@ func (m *Mpv) CommandAsync(replyUserdata uint64, cmd []string) error {
 	return newError(commandAsync(m.handle, replyUserdata, unsafe.SliceData(cmds)))
 }
 
+// CommandNode runs a command given as a []any or map[string]any and returns its result.
+func (m *Mpv) CommandNode(args interface{}) (interface{}, error) {
+	cargs, cleanup := goToNode(args)
+	defer cleanup()
+
+	var result cNode
+	err := newError(commandNode(m.handle, cargs, unsafe.Pointer(&result)))
+	if err != nil {
+		return nil, err
+	}
+	defer freeNodeContents(unsafe.Pointer(&result))
+
+	return nodeToGo(unsafe.Pointer(&result)), nil
+}
+
+// CommandNodeAsync runs a structured command asynchronously.
+func (m *Mpv) CommandNodeAsync(replyUserdata uint64, args interface{}) error {
+	cargs, cleanup := goToNode(args)
+	defer cleanup()
+
+	return newError(commandNodeAsync(m.handle, replyUserdata, cargs))
+}
+
 // SetProperty sets the client property according to the given format.
 func (m *Mpv) SetProperty(name string, format Format, data interface{}) error {
 	cdata, cleanup := convertData(format, data)
@@ -196,7 +232,7 @@ func (m *Mpv) GetProperty(name string, format Format) (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer free(unsafe.Pointer(result))
+		defer mpvFree(unsafe.Pointer(result))
 		return toStr(unsafe.Pointer(result)), nil
 	case FormatFlag:
 		var result int32
@@ -219,6 +255,14 @@ func (m *Mpv) GetProperty(name string, format Format) (interface{}, error) {
 			return nil, err
 		}
 		return float64(result), nil
+	case FormatNode:
+		var result cNode
+		err := newError(getProperty(m.handle, name, int(format), unsafe.Pointer(&result)))
+		if err != nil {
+			return nil, err
+		}
+		defer freeNodeContents(unsafe.Pointer(&result))
+		return nodeToGo(unsafe.Pointer(&result)), nil
 	default:
 		return nil, ErrUnknownFormat
 	}
@@ -231,7 +275,7 @@ func (m *Mpv) GetPropertyString(name string) string {
 	if str == nil {
 		return ""
 	}
-	defer free(unsafe.Pointer(str))
+	defer mpvFree(unsafe.Pointer(str))
 
 	return toStr(unsafe.Pointer(str))
 }
@@ -242,7 +286,7 @@ func (m *Mpv) GetPropertyOsdString(name string) string {
 	if str == nil {
 		return ""
 	}
-	defer free(unsafe.Pointer(str))
+	defer mpvFree(unsafe.Pointer(str))
 
 	return toStr(unsafe.Pointer(str))
 }
@@ -321,6 +365,8 @@ func convertData(format Format, data interface{}) (unsafe.Pointer, func()) {
 	case FormatDouble:
 		val := data.(float64)
 		return unsafe.Pointer(&val), func() {}
+	case FormatNode:
+		return goToNode(data)
 	default:
 		return nil, func() {}
 	}
