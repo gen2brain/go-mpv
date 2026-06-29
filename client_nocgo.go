@@ -97,8 +97,10 @@ func init() {
 	purego.RegisterLibFunc(&commandNode, libmpv, "mpv_command_node")
 	purego.RegisterLibFunc(&commandNodeAsync, libmpv, "mpv_command_node_async")
 	purego.RegisterLibFunc(&freeNodeContents, libmpv, "mpv_free_node_contents")
-	purego.RegisterLibFunc(&memAlloc, libmpv, "malloc")
-	purego.RegisterLibFunc(&memFree, libmpv, "free")
+
+	mem := memLibrary()
+	purego.RegisterLibFunc(&memAlloc, mem, "malloc")
+	purego.RegisterLibFunc(&memFree, mem, "free")
 
 	cAlloc = func(size int) unsafe.Pointer { return memAlloc(uintptr(size)) }
 	cFree = memFree

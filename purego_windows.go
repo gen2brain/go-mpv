@@ -24,3 +24,20 @@ func loadLibrary() uintptr {
 
 	panic(fmt.Errorf("cannot load libmpv (tried %v): %w", libnames, err))
 }
+
+// crtnames are the C runtime DLLs that export malloc/free, tried in order.
+var crtnames = []string{"ucrtbase.dll", "msvcrt.dll"}
+
+// memLibrary loads the C runtime to resolve malloc/free, which libmpv does not export.
+func memLibrary() uintptr {
+	var err error
+	for _, name := range crtnames {
+		var handle windows.Handle
+		handle, err = windows.LoadLibrary(name)
+		if err == nil {
+			return uintptr(handle)
+		}
+	}
+
+	panic(fmt.Errorf("cannot load C runtime (tried %v): %w", crtnames, err))
+}

@@ -24,3 +24,9 @@ func loadLibrary() uintptr {
 
 	panic(fmt.Errorf("cannot load libmpv (tried %v): %w", libnames, err))
 }
+
+// memLibrary returns the handle to resolve malloc/free from. libmpv pulls in libc,
+// so its dependency chain exposes them.
+func memLibrary() uintptr {
+	return libmpv
+}
