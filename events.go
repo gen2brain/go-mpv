@@ -236,12 +236,16 @@ type eventEndFile struct {
 	_                [4]byte
 }
 
+// toStr copies a NUL-terminated C string into a Go-owned string.
 func toStr(p unsafe.Pointer) string {
-	str := unsafe.String((*byte)(p), 16*1024)
-	idx := strings.Index(str, "\x00")
-	if idx != -1 {
-		str = str[:idx]
+	if p == nil {
+		return ""
 	}
 
-	return strings.TrimSpace(str)
+	var n int
+	for *(*byte)(unsafe.Add(p, n)) != 0 {
+		n++
+	}
+
+	return strings.TrimSpace(string(unsafe.Slice((*byte)(p), n)))
 }
