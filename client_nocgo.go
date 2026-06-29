@@ -54,6 +54,7 @@ var commandNodeAsync func(handle uintptr, replyUserdata uint64, args unsafe.Poin
 var freeNodeContents func(node unsafe.Pointer)
 var memAlloc func(size uintptr) unsafe.Pointer
 var memFree func(p unsafe.Pointer)
+var setLocale func(category int, locale string) string
 
 func init() {
 	libmpv = loadLibrary()
@@ -101,9 +102,16 @@ func init() {
 	mem := memLibrary()
 	purego.RegisterLibFunc(&memAlloc, mem, "malloc")
 	purego.RegisterLibFunc(&memFree, mem, "free")
+	purego.RegisterLibFunc(&setLocale, mem, "setlocale")
 
 	cAlloc = func(size int) unsafe.Pointer { return memAlloc(uintptr(size)) }
 	cFree = memFree
+}
+
+// SetLocale wraps C setlocale. libmpv needs LC_NUMERIC "C"; after a GUI toolkit
+// changes the locale, call mpv.SetLocale(mpv.LCNumeric, "C").
+func SetLocale(category int, locale string) string {
+	return setLocale(category, locale)
 }
 
 // Mpv represents an mpv client.

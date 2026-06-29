@@ -6,6 +6,7 @@ package mpv
 /*
 #include <mpv/client.h>
 #include <stdlib.h>
+#include <locale.h>
 
 static char** makeCharArray(int size) {
     return calloc(sizeof(char*), size);
@@ -28,6 +29,26 @@ import (
 func init() {
 	cAlloc = func(size int) unsafe.Pointer { return C.malloc(C.size_t(size)) }
 	cFree = func(p unsafe.Pointer) { C.free(p) }
+}
+
+// Locale categories for SetLocale.
+const (
+	LCAll     = C.LC_ALL
+	LCNumeric = C.LC_NUMERIC
+)
+
+// SetLocale wraps C setlocale. libmpv needs LC_NUMERIC "C"; after a GUI toolkit
+// changes the locale, call mpv.SetLocale(mpv.LCNumeric, "C").
+func SetLocale(category int, locale string) string {
+	clocale := C.CString(locale)
+	defer C.free(unsafe.Pointer(clocale))
+
+	res := C.setlocale(C.int(category), clocale)
+	if res == nil {
+		return ""
+	}
+
+	return C.GoString(res)
 }
 
 // Mpv represents an mpv client.

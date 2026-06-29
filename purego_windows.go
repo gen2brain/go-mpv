@@ -11,6 +11,12 @@ import (
 // libnames are the libmpv DLL names used by various distributions, tried in order.
 var libnames = []string{"libmpv-2.dll", "libmpv.dll", "mpv-2.dll", "mpv-1.dll"}
 
+// Locale categories for SetLocale (Windows CRT values).
+const (
+	LCAll     = 0
+	LCNumeric = 4
+)
+
 // loadLibrary loads the dll and panics if none of the known names can be found.
 func loadLibrary() uintptr {
 	var err error
