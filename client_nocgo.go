@@ -199,7 +199,7 @@ func (m *Mpv) GetProperty(name string, format Format) (interface{}, error) {
 		defer free(unsafe.Pointer(result))
 		return toStr(unsafe.Pointer(result)), nil
 	case FormatFlag:
-		var result int
+		var result int32
 		err := newError(getProperty(m.handle, name, int(format), unsafe.Pointer(&result)))
 		if err != nil {
 			return nil, err
@@ -305,7 +305,7 @@ func convertData(format Format, data interface{}) (unsafe.Pointer, func()) {
 		b := cStr(data.(string))
 		return unsafe.Pointer(&b), func() {}
 	case FormatFlag:
-		var val int
+		var val int32
 		if data.(bool) {
 			val = 1
 		} else {

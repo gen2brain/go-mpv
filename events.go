@@ -148,7 +148,7 @@ func (e *Event) Property() EventProperty {
 	case FormatString, FormatOsdString:
 		ep.Data = toStr(s.Data)
 	case FormatFlag:
-		ep.Data = *(*int)(s.Data)
+		ep.Data = int(*(*int32)(s.Data))
 	case FormatInt64:
 		ep.Data = *(*int64)(s.Data)
 	case FormatDouble:

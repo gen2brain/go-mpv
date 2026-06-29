@@ -317,7 +317,7 @@ func convertData(format Format, data interface{}) (unsafe.Pointer, func()) {
 		cstr := C.CString(data.(string))
 		return unsafe.Pointer(&cstr), func() { C.free(unsafe.Pointer(cstr)) }
 	case FormatFlag:
-		var val int
+		var val C.int
 		if data.(bool) {
 			val = 1
 		} else {
