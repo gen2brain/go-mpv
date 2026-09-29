@@ -15,6 +15,8 @@ const (
 	renderParamOpenGLInitParams = 2
 	renderParamOpenGLFBO        = 3
 	renderParamFlipY            = 4
+	renderParamAdvancedControl  = 10
+	renderParamBlockForTarget   = 12
 	renderParamSWSize           = 17
 	renderParamSWFormat         = 18
 	renderParamSWStride         = 19
@@ -81,12 +83,15 @@ type RenderContext struct {
 
 // NewRenderContextSW creates a software (CPU) render context. The mpv instance
 // must have the "vo" option set to "libmpv".
-func (m *Mpv) NewRenderContextSW() (*RenderContext, error) {
+func (m *Mpv) NewRenderContextSW(opts ...RenderContextOption) (*RenderContext, error) {
+	o := newRenderContextOptions(opts)
 	id := registerRenderCallbacks()
 
 	apiType := cStr(RenderAPITypeSW)
+	advanced := cFlag(o.advancedControl)
 	params := []cRenderParam{
 		{typ: renderParamAPIType, data: unsafe.Pointer(apiType)},
+		{typ: renderParamAdvancedControl, data: unsafe.Pointer(&advanced)},
 		{},
 	}
 
@@ -102,16 +107,19 @@ func (m *Mpv) NewRenderContextSW() (*RenderContext, error) {
 
 // NewRenderContextGL creates an OpenGL render context; getProcAddress resolves GL
 // functions. Requires vo=libmpv and the GL context current on the calling thread.
-func (m *Mpv) NewRenderContextGL(getProcAddress func(name string) unsafe.Pointer) (*RenderContext, error) {
+func (m *Mpv) NewRenderContextGL(getProcAddress func(name string) unsafe.Pointer, opts ...RenderContextOption) (*RenderContext, error) {
+	o := newRenderContextOptions(opts)
 	ensureRenderCallbacks()
 	id := registerRenderCallbacks()
 	setRenderProcAddress(id, getProcAddress)
 
 	apiType := cStr(RenderAPITypeOpenGL)
 	gl := cOpenGLInitParams{getProcAddress: procAddrCb, ctx: id}
+	advanced := cFlag(o.advancedControl)
 	params := []cRenderParam{
 		{typ: renderParamAPIType, data: unsafe.Pointer(apiType)},
 		{typ: renderParamOpenGLInitParams, data: unsafe.Pointer(&gl)},
+		{typ: renderParamAdvancedControl, data: unsafe.Pointer(&advanced)},
 		{},
 	}
 
@@ -127,15 +135,18 @@ func (m *Mpv) NewRenderContextGL(getProcAddress func(name string) unsafe.Pointer
 
 // RenderSW renders the current frame into buf, which must hold stride*height
 // bytes. format is one of "rgb0", "bgr0", "0bgr", "0rgb".
-func (rc *RenderContext) RenderSW(width, height, stride int, format string, buf []byte) error {
+func (rc *RenderContext) RenderSW(width, height, stride int, format string, buf []byte, opts ...RenderOption) error {
+	o := newRenderOptions(opts)
 	size := [2]int32{int32(width), int32(height)}
 	cformat := cStr(format)
 	cstride := uintptr(stride)
+	block := cFlag(o.blockForTargetTime)
 	params := []cRenderParam{
 		{typ: renderParamSWSize, data: unsafe.Pointer(&size[0])},
 		{typ: renderParamSWFormat, data: unsafe.Pointer(cformat)},
 		{typ: renderParamSWStride, data: unsafe.Pointer(&cstride)},
 		{typ: renderParamSWPointer, data: unsafe.Pointer(&buf[0])},
+		{typ: renderParamBlockForTarget, data: unsafe.Pointer(&block)},
 		{},
 	}
 
@@ -144,15 +155,15 @@ func (rc *RenderContext) RenderSW(width, height, stride int, format string, buf 
 
 // RenderGL renders the current frame into the given OpenGL framebuffer object
 // (0 for the default framebuffer). Set flipY for bottom-up coordinate systems.
-func (rc *RenderContext) RenderGL(fbo, width, height int, flipY bool) error {
+func (rc *RenderContext) RenderGL(fbo, width, height int, flipY bool, opts ...RenderOption) error {
+	o := newRenderOptions(opts)
 	gl := cOpenGLFBO{fbo: int32(fbo), w: int32(width), h: int32(height)}
-	flip := int32(0)
-	if flipY {
-		flip = 1
-	}
+	flip := cFlag(flipY)
+	block := cFlag(o.blockForTargetTime)
 	params := []cRenderParam{
 		{typ: renderParamOpenGLFBO, data: unsafe.Pointer(&gl)},
 		{typ: renderParamFlipY, data: unsafe.Pointer(&flip)},
+		{typ: renderParamBlockForTarget, data: unsafe.Pointer(&block)},
 		{},
 	}
 

@@ -15,6 +15,57 @@ const (
 // video frame should be rendered.
 const RenderUpdateFrame uint64 = 1 << 0
 
+// RenderContextOption configures a render context at creation.
+type RenderContextOption func(*renderContextOptions)
+
+type renderContextOptions struct {
+	advancedControl bool
+}
+
+// WithAdvancedControl sets MPV_RENDER_PARAM_ADVANCED_CONTROL. Call
+// SetUpdateCallback right after creation; see the requirements in render.h.
+func WithAdvancedControl() RenderContextOption {
+	return func(o *renderContextOptions) { o.advancedControl = true }
+}
+
+func newRenderContextOptions(opts []RenderContextOption) renderContextOptions {
+	var o renderContextOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
+	return o
+}
+
+// RenderOption configures a RenderSW or RenderGL call.
+type RenderOption func(*renderOptions)
+
+type renderOptions struct {
+	blockForTargetTime bool
+}
+
+// WithoutBlockForTargetTime clears MPV_RENDER_PARAM_BLOCK_FOR_TARGET_TIME, so
+// rendering returns without waiting for the frame's display time; pace frames
+// yourself, see render.h.
+func WithoutBlockForTargetTime() RenderOption {
+	return func(o *renderOptions) { o.blockForTargetTime = false }
+}
+
+func newRenderOptions(opts []RenderOption) renderOptions {
+	o := renderOptions{blockForTargetTime: true}
+	for _, opt := range opts {
+		opt(&o)
+	}
+	return o
+}
+
+// cFlag converts b to an mpv flag.
+func cFlag(b bool) int32 {
+	if b {
+		return 1
+	}
+	return 0
+}
+
 // Render callbacks live in a token-keyed registry; the token is passed to C as the
 // callback context, so one trampoline dispatches without handing Go pointers to C.
 var (

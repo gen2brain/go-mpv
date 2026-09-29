@@ -105,3 +105,49 @@ func TestRenderUpdateCallback(t *testing.T) {
 
 	t.Fatal("update callback was not called")
 }
+
+// TestRenderAdvancedControl renders with both render options set.
+func TestRenderAdvancedControl(t *testing.T) {
+	m := New()
+	defer m.TerminateDestroy()
+
+	if err := m.SetOptionString("vo", "libmpv"); err != nil {
+		t.Fatalf("set vo=libmpv: %v", err)
+	}
+	if err := m.SetOptionString("ao", "null"); err != nil {
+		t.Fatalf("set ao=null: %v", err)
+	}
+	if err := m.Initialize(); err != nil {
+		t.Fatalf("Initialize: %v", err)
+	}
+
+	rc, err := m.NewRenderContextSW(WithAdvancedControl())
+	if err != nil {
+		t.Fatalf("NewRenderContextSW: %v", err)
+	}
+	defer rc.Free()
+	// Required with advanced control.
+	rc.SetUpdateCallback(func() {})
+
+	if err := m.Command([]string{"loadfile", "testdata/test.mpg"}); err != nil {
+		t.Fatalf("loadfile: %v", err)
+	}
+
+	const w, h, stride = 320, 240, 320 * 4
+	buf := make([]byte, stride*h)
+	for i := 0; i < 200; i++ {
+		if rc.Update()&RenderUpdateFrame != 0 {
+			if err := rc.RenderSW(w, h, stride, "rgb0", buf, WithoutBlockForTargetTime()); err != nil {
+				t.Fatalf("RenderSW: %v", err)
+			}
+			for _, b := range buf {
+				if b != 0 {
+					return
+				}
+			}
+		}
+		m.WaitEvent(0.05)
+	}
+
+	t.Fatal("no non-black frame rendered")
+}
