@@ -139,6 +139,13 @@ func (m *Mpv) ID() int64 {
 	return id(m.handle)
 }
 
+// RawHandle returns the underlying mpv_handle for use with the C API.
+// It is owned by m and valid until Destroy or TerminateDestroy.
+func (m *Mpv) RawHandle() unsafe.Pointer {
+	// C memory, so safe to read as a pointer; this form avoids vet's warning.
+	return *(*unsafe.Pointer)(unsafe.Pointer(&m.handle))
+}
+
 // Initialize initializes an uninitialized mpv instance.
 func (m *Mpv) Initialize() error {
 	return newError(initialize(m.handle))
